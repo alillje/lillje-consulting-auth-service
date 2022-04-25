@@ -31,11 +31,10 @@ const authenticateJWT = (req, res, next) => {
 
     // Set properties to req.user from JWT payload
     const payload = jwt.verify(token, Buffer.from(process.env.ACCESS_TOKEN_PUB, 'base64').toString('ascii'))
-    req.user = {
+    req.admin = {
       sub: payload.sub,
       admin: payload.admin
     }
-
     next()
   } catch (err) {
     const error = createError(401)
@@ -55,9 +54,10 @@ const authenticateJWT = (req, res, next) => {
  */
 const authorizeUser = (req, res, next) => {
   try {
-    if (!req.user.admin) {
+    if (!req.admin.admin) {
       throw new Error('No right to access.')
     }
+
     next()
   } catch (err) {
     const error = createError(403)
@@ -68,5 +68,15 @@ const authorizeUser = (req, res, next) => {
 export const router = express.Router()
 
 const controller = new UsersController()
+
+// Provide req.image to the route if :id is present in the route path.
+router.param('id', (req, res, next, id) => controller.loadUser(req, res, next, id))
+
+// GET users/:id
+router.get('/:id',
+  authenticateJWT, authorizeUser,
+  (req, res, next) => controller.find(req, res, next)
+)
+
 // Get user
 router.get('/', authenticateJWT, authorizeUser, (req, res, next) => controller.getAll(req, res, next))
