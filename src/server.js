@@ -8,28 +8,33 @@
 import express from 'express'
 import helmet from 'helmet'
 import logger from 'morgan'
+import cors from 'cors'
 import { router } from './routes/router.js'
 import { connectDB } from './config/mongoose.js'
 
 try {
-  
   await connectDB()
 
   const app = express()
 
+  app.use(cors({
+    origin: 'http://localhost:3000',
+    credentials: true,
+    optionSuccessStatus: 200
+  }))
+
   // Set various HTTP headers to make the application little more secure (https://www.npmjs.com/package/helmet).
   app.use(helmet())
-  
-  // Add Access Control Allow Origin headers
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:3000");
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept"
-  );
-  next();
-});
 
+  // Add Access Control Allow Origin headers
+  // app.use((req, res, next) => {
+  //   res.setHeader('Access-Control-Allow-Origin', 'http://localhost:3000')
+  //   res.header(
+  //     'Access-Control-Allow-Headers',
+  //     'Origin, X-Requested-With, Content-Type, Accept'
+  //   )
+  //   next()
+  // })
 
   // Set up a morgan logger using the dev format for log entries.
   app.use(logger('dev'))

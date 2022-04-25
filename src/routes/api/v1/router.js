@@ -7,8 +7,10 @@
 
 import express from 'express'
 import { router as accountRouter } from './account-router.js'
+import { router as usersRouter } from './users-router.js'
 
 export const router = express.Router()
 
 router.get('/', (req, res) => res.json({ message: 'This is an auth API' }))
 router.use('/', accountRouter)
+router.use('/users', usersRouter)
