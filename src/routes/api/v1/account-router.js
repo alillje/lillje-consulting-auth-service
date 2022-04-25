@@ -17,3 +17,9 @@ router.post('/login', (req, res, next) => controller.login(req, res, next))
 
 // Register
 router.post('/register', (req, res, next) => controller.register(req, res, next))
+
+// Refresh token
+router.post('/refresh', (req, res, next) => controller.refreshToken(req, res, next))
+
+// Log out
+router.post('/logout', (req, res, next) => controller.logout(req, res, next))
