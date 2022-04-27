@@ -65,7 +65,7 @@ export class UsersController {
    * Gets all users.
    *
    * @param {object} req - Express request object.
-   * @param {object} res - Express response object..
+   * @param {object} res - Express response object.
    * @param {Function} next - Express next middleware function.
    */
   async getAll (req, res, next) {
