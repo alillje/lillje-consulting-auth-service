@@ -18,7 +18,7 @@ try {
   const app = express()
 
   app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'https://lillje-consulting-customer.herokuapp.com/'],
     credentials: true,
     optionSuccessStatus: 200
   }))
