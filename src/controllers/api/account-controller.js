@@ -16,7 +16,7 @@ import { RefreshToken } from '../../models/refresh-token.js'
  */
 export class AccountController {
   /**
-   * Authenticates a user..
+   * Authenticates a user.
    *
    * @param {object} req - Express request object.
    * @param {object} res - Express response object.
