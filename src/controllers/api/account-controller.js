@@ -108,7 +108,7 @@ export class AccountController {
         username: req.body.username.toLowerCase(),
         password: req.body.password,
         email: req.body.email,
-        admin: req.body.admin
+        admin: req.body.admin ? req.body.admin : false
       })
 
       await user.save()
