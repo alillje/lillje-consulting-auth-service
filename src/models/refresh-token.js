@@ -2,7 +2,7 @@
  * Mongoose model RefreshToken.
  *
  * @author Andreas Lillje
- * @version 1.0.0
+ * @version 2.3.1
  */
 
 import mongoose from 'mongoose'
@@ -21,10 +21,9 @@ const schema = new mongoose.Schema({
     type: Array,
     default: []
   },
-  // Set expriy date for token
+  // Set expriy date for token. Document is removed after 1 day.
   expire_at: {
     type: Date,
-    // default: '2022-04-13T12:48:16.303+00:00',
     default: add(Date.now(), { days: 1 }),
     expires: 60
   }

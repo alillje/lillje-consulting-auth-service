@@ -2,7 +2,7 @@
  * Users routes.
  *
  * @author Andreas Lillje
- * @version 1.0.0
+ * @version 2.3.1
  */
 
 import express from 'express'
@@ -35,6 +35,7 @@ const authenticateJWT = (req, res, next) => {
       sub: payload.sub,
       admin: payload.admin
     }
+
     next()
   } catch (err) {
     const error = createError(401)
@@ -44,15 +45,15 @@ const authenticateJWT = (req, res, next) => {
 }
 
 /**
- * Authorizes resources.
+ * Authorizes admin users.
  *
- * Checks if user has right/access to a specific resource.
+ * Checks if user is admin and has right/access to access users.
  *
  * @param {object} req - Express request object.
  * @param {object} res - Express response object.
  * @param {Function} next - Express next middleware function.
  */
-const authorizeUser = (req, res, next) => {
+const authorizeAdmin = (req, res, next) => {
   try {
     if (!req.admin.admin) {
       throw new Error('No right to access.')
@@ -69,14 +70,17 @@ export const router = express.Router()
 
 const controller = new UsersController()
 
-// Provide req.image to the route if :id is present in the route path.
+// Provide req.user to the route if :id is present in the route path.
 router.param('id', (req, res, next, id) => controller.loadUser(req, res, next, id))
+
+router.get('/', authenticateJWT, authorizeAdmin, (req, res, next) => controller.getAll(req, res, next))
+
+router.post('/register', authenticateJWT, authorizeAdmin, (req, res, next) => controller.register(req, res, next))
+
+router.patch('/password/reset', authenticateJWT, authorizeAdmin, (req, res, next) => controller.resetPassword(req, res, next))
 
 // GET users/:id
 router.get('/:id',
-  authenticateJWT, authorizeUser,
+  authenticateJWT, authorizeAdmin,
   (req, res, next) => controller.find(req, res, next)
 )
-
-// Get user
-router.get('/', authenticateJWT, authorizeUser, (req, res, next) => controller.getAll(req, res, next))
