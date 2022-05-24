@@ -2,7 +2,7 @@
  * Mongoose configuration.
  *
  * @author Andreas Lillje
- * @version 1.0.0
+ * @version 2.3.1
  */
 
 import mongoose from 'mongoose'

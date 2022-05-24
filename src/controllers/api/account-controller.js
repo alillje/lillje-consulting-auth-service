@@ -2,14 +2,16 @@
  * Module for the AccountController.
  *
  * @author Andreas Lillje
- * @version 1.0.0
+ * @version 2.3.1
  */
 
 // import createError from 'http-errors'
 import jwt from 'jsonwebtoken'
 import createError from 'http-errors'
+import validator from 'validator'
 import { User } from '../../models/user.js'
 import { RefreshToken } from '../../models/refresh-token.js'
+import { add } from 'date-fns'
 
 /**
  * Encapsulates a controller.
@@ -26,13 +28,13 @@ export class AccountController {
     try {
       // Make username case insensitive when login
       const user = await User.authenticate(
-        req.body.username.toLowerCase(),
+        req.body.email.toLowerCase(),
         req.body.password
       )
       // Set user-id to sub (subject) in JWT payload
       const payload = {
         sub: user.id,
-        username: user.username,
+        company: user.company,
         admin: user.admin
       }
       // Create the access token with the shorter lifespan.
@@ -61,12 +63,14 @@ export class AccountController {
       const userRefreshTokenInDb = await RefreshToken.findOne({
         user: user.id
       })
+      // Set expiry date for token
       if (!userRefreshTokenInDb) {
         const newRefreshToken = new RefreshToken({
           token: refreshToken,
-          user: user.id
+          user: user.id,
+          expire_at: add(Date.now(), { days: 1 })
         })
-        newRefreshToken.save()
+        await newRefreshToken.save()
         // If refresh token exist in database, set new token and save old one in usedTokens
       } else {
         await RefreshToken.findOneAndUpdate({
@@ -89,50 +93,6 @@ export class AccountController {
   }
 
   /**
-   * Registers a user.
-   *
-   * @param {object} req - Express request object.
-   * @param {object} res - Express response object.
-   * @param {Function} next - Express next middleware function.
-   */
-  async register (req, res, next) {
-    try {
-      // Check all required fields exist before making request to DB.
-      if (!req.body.username || !req.body.password || !req.body.email) {
-        const error = new Error('Validation error')
-        error.name = 'ValidationError'
-        throw error
-      }
-      // Make username credentials case insensitive
-      const user = new User({
-        username: req.body.username.toLowerCase(),
-        password: req.body.password,
-        email: req.body.email,
-        admin: req.body.admin ? req.body.admin : false
-      })
-
-      await user.save()
-
-      res.status(201).json({ id: user.id })
-    } catch (err) {
-      console.log(err)
-      let error = err
-
-      if (error.code === 11000) {
-        // Duplicated keys.
-        error = createError(409)
-        error.cause = err
-      } else if (error.name === 'ValidationError') {
-        // Validation error(s).
-        error = createError(400)
-        error.cause = err
-      }
-
-      next(error)
-    }
-  }
-
-  /**
    * Refresh an access token.
    *
    * @param {object} req - Express request object.
@@ -141,17 +101,12 @@ export class AccountController {
    */
   async refreshToken (req, res, next) {
     if (!req.body.refreshToken) {
-      const error = createError(403)
+      const error = createError(400)
       next(error)
       return
     }
     try {
       const requestToken = req.body?.refreshToken
-      if (!requestToken) {
-        const error = createError(404)
-        next(error)
-        return
-      }
       const refreshToken = await RefreshToken.findOne({ token: requestToken })
 
       // Check if refresh token has been used previously
@@ -170,6 +125,7 @@ export class AccountController {
 
       if (!refreshToken) {
         const error = createError(401)
+        error.message = 'Invalid token'
         next(error)
         return
       } else {
@@ -177,8 +133,8 @@ export class AccountController {
         const tokenDecoded = jwt.decode(requestToken)
         const payload = {
           sub: tokenDecoded.sub,
-          username: requestToken.username,
-          admin: requestToken.admin
+          company: tokenDecoded.company,
+          admin: tokenDecoded.admin
         }
 
         // Create the access token with the shorter lifespan.
@@ -211,8 +167,13 @@ export class AccountController {
         })
       }
     } catch (err) {
-      console.log(err)
-      next(err)
+      if (err.name === 'TokenExpiredError') {
+        const error = createError(401)
+        error.message = 'Invalid refresh token'
+        next(error)
+      } else {
+        next(err)
+      }
     }
   }
 
@@ -226,7 +187,6 @@ export class AccountController {
   async logout (req, res, next) {
     try {
       if (!req.body.refreshToken) {
-        console.log('No token provided')
         const error = createError(400)
         next(error)
         return
@@ -239,6 +199,115 @@ export class AccountController {
     } catch (err) {
       const error = createError(400)
       error.cause = err
+      next(error)
+    }
+  }
+
+  /**
+   * Provide req.user to the route if :id is present.
+   *
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {Function} next - Express next middleware function.
+   * @param {string} id - The value of the id for the user to load.
+   */
+  async loadUser (req, res, next, id) {
+    try {
+      // Get the user.
+      const user = await User.findById(id)
+
+      // If no image found send 404, set error message.
+      if (!user) {
+        const error = createError(404)
+        next(error)
+        return
+      }
+
+      // Provide the customer to the request object.
+      req.customer = user
+
+      next()
+    } catch (err) {
+      let error = err
+      // If id is incorrect, does not match mongoose format (CastError), send 404
+      if (error.name === 'CastError') {
+        error = createError(404)
+        next(error)
+      } else {
+        next(error)
+      }
+    }
+  }
+
+  /**
+   * Sends a JSON response containing a user.
+   *
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {Function} next - Express next middleware function.
+   */
+  async find (req, res, next) {
+    res.json(req.customer)
+  }
+
+  /**
+   * Updates a specific user partially.
+   *
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {Function} next - Express next middleware function.
+   */
+  async updateCredentials (req, res, next) {
+    try {
+      if (!req.body.email) {
+        const error = createError(400)
+        next(error)
+      }
+      // Sanitize before saving to db
+      const newEmail = validator.escape(req.body.email)
+      await User.findByIdAndUpdate(req.user.sub, { email: newEmail })
+      res
+        .status(204)
+        .end()
+    } catch (err) {
+      console.log(err)
+      const error = createError(400)
+      next(error)
+    }
+  }
+
+  /**
+   * Updates the password of a specific user.
+   *
+   * @param {object} req - Express request object.
+   * @param {object} res - Express response object.
+   * @param {Function} next - Express next middleware function.
+   */
+  async updatePassword (req, res, next) {
+    try {
+      if (!req.body.email || !req.body.password || !req.body.newPassword || !req.body.newPasswordConfirm) {
+        const error = createError(400)
+        next(error)
+      } else if (req.body.newPassword !== req.body.newPasswordConfirm) {
+        const error = createError(400)
+        next(error)
+      }
+
+      const user = await User.authenticate(
+        req.body.email.toLowerCase(),
+        req.body.password
+      )
+
+      user.password = req.body.newPassword
+      user.save()
+
+      res
+        .status(204)
+        .end()
+    } catch (err) {
+      console.log(err)
+      let error = err
+      error = createError(400)
       next(error)
     }
   }

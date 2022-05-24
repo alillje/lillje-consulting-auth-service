@@ -2,7 +2,7 @@
  * API version 1 routes.
  *
  * @author Andreas Lillje
- * @version 1.0.0
+ * @version 2.3.1
  */
 
 import express from 'express'
@@ -12,5 +12,5 @@ import { router as usersRouter } from './users-router.js'
 export const router = express.Router()
 
 router.get('/', (req, res) => res.json({ message: 'auth API' }))
-router.use('/', accountRouter)
 router.use('/users', usersRouter)
+router.use('/', accountRouter)

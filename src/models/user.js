@@ -2,7 +2,7 @@
  * Mongoose model User.
  *
  * @author Andreas Lillje
- * @version 1.0.0
+ * @version 2.3.1
  */
 
 import bcrypt from 'bcrypt'
@@ -13,15 +13,14 @@ const { isEmail } = validator
 
 // Create a schema.
 const schema = new mongoose.Schema({
-  username: {
+  company: {
     type: String,
-    required: [true, 'Username is required.'],
-    unique: true,
-    // - A valid username should start with an alphabet so, [A-Za-z].
-    // - All other characters can be alphabets, numbers or an underscore so, [A-Za-z0-9_-].
-    // - Since length constraint is 3-256 and we had already fixed the first character, so we give {2, 255}.
-    // - We use ^ and $ to specify the beginning and end of matching.
-    match: [/^[A-Za-z][A-Za-z0-9_-]{2,255}$/, 'Please provide a valid username.']
+    required: [true, 'Company is required.'],
+    unique: true
+  },
+  // Add this to make sorting case insensitive
+  companyNormalized: {
+    type: String
   },
   password: {
     type: String,
@@ -29,6 +28,13 @@ const schema = new mongoose.Schema({
     maxLength: [256, 'The password must be of maximum length 256 characters.'],
     writeOnly: true,
     required: [true, 'Password is required.']
+  },
+  orgNo: {
+    type: String,
+    unique: true,
+    required: [true, 'Organization number is required.'],
+    match: [/(\d{6}[-]\d{4})/, 'Please provide a valid organization number. ']
+
   },
   email: {
     type: String,
@@ -54,6 +60,7 @@ const schema = new mongoose.Schema({
     transform: function (doc, ret) {
       delete ret._id
       delete ret.__v
+      delete ret.password
     },
     virtuals: true // ensure virtual fields are serialized
   }
@@ -71,13 +78,12 @@ schema.pre('save', async function () {
 /**
  * Authenticates a user.
  *
- * @param {string} username - The username to authenticate.
+ * @param {string} email - The email to authenticate.
  * @param {string} password - The password to authenticate.
  * @returns {Promise<User>} ...
  */
-schema.statics.authenticate = async function (username, password) {
-  const user = await this.findOne({ username })
-
+schema.statics.authenticate = async function (email, password) {
+  const user = await this.findOne({ email })
   // If no user found or password is wrong, throw an error.
   if (!(await bcrypt.compare(password, user?.password))) {
     throw new Error('Invalid credentials.')
